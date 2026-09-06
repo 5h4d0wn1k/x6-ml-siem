@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "x6-ml-siem"
+version = "1.0.0"
+description = "Production-grade blue-team ML SIEM: flow baseline, ML anomaly scoring, alert feed (own-lab telemetry only)."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "5h4d0wn1k", email = "5h4d0wn1k@users.noreply.github.com" }]
+keywords = ["siem", "ml", "anomaly-detection", "blue-team", "security"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Intended Audience :: Information Technology",
+    "Topic :: Security",
+]
+dependencies = []
+
+[project.optional-dependencies]
+ml = ["scikit-learn>=1.0"]
+yaml = ["PyYAML>=5.0"]
+
+[project.scripts]
+siem = "siem.cli:main"
+
+[tool.setuptools]
+packages = ["siem"]

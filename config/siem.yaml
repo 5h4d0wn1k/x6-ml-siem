@@ -1,0 +1,40 @@
+# x6-ml-siem configuration
+# Home-lab note: this system trains and detects ONLY on your own lab telemetry.
+# Placeholder network 192.0.2.0/24 (RFC 5737 documentation range) is used in the
+# synthetic corpus and examples. Never train on or ingest third-party data.
+
+home_lab_note: |
+  This system trains and detects ONLY on your own lab telemetry. The placeholder
+  network 192.0.2.0/24 (RFC 5737) is used in examples and the synthetic corpus.
+  Do not deploy against any network/telemetry you do not own or are not
+  explicitly authorized to monitor.
+
+feature:
+  window_sec: 60
+  features:
+    - packet_count
+    - byte_count
+    - duration_total
+    - ports_breadth
+    - timing_regularity
+    - session_count
+    - avg_pkt_size
+    - flow_rate
+
+scoring:
+  threshold: 0.85
+  update_cadence_sec: 300   # periodic model refresh interval (drift handling)
+
+detector:
+  zscore_std_threshold: 3.0   # robust z-score cutoff for the baseline detector
+  contamination: 0.1          # sklearn IsolationForest contamination (if present)
+  force_stdlib: false         # true forces the stdlib path even when sklearn is present
+
+alert:
+  console: true
+  jsonl: "alerts/alerts.jsonl"
+  webhook_url: ""   # optional HTTP endpoint; leave empty to disable
+
+logging:
+  file: "logs/siem.log"
+  level: "INFO"

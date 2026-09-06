@@ -1,116 +1,170 @@
-# X6 — SIEM with ML Anomaly Detection
+# X6 — ML SIEM (Flow Baseline + Anomaly Scoring + Alert Feed)
 
-Full SIEM pipeline MVP in pure Python: parses normalized JSON event logs, builds feature windows, runs from-scratch Isolation-Forest-like and SVD/PCA-based anomaly detectors, fuses scores, tags ATT&CK techniques, and renders a text-based triage dashboard.
-
-## Overview
-
-This project implements a complete SIEM detection pipeline without external ML libraries:
-- **Event Ingestion**: Parses normalized JSON events (auditd/sysmon/zeek-style lines)
-- **Feature Engineering**: Event counts, ratios, temporal windows per host/user
-- **Isolation-Forest-like Scorer**: Pure Python random partitioning anomaly detector
-- **SVD/PCA Reconstruction**: Autoencoder-ish detector via truncated SVD reconstruction error
-- **Score Fusion**: Combines both detector outputs with configurable weighting
-- **ATT&CK Mapping**: Tags detected anomalies with MITRE ATT&CK technique IDs
-- **Triage Dashboard**: Text-based table output with precision/recall on labeled corpus
-
-## Features
-
-- **Dual Detector Engine**: Isolation-Forest-like tree scorer + SVD reconstruction error
-- **Feature Windows**: Sliding window feature extraction from event streams
-- **ATT&CK Technique Tagging**: Maps anomaly clusters to T-numbers (T1053, T1059, etc.)
-- **Precision/Recall Scoring**: Built-in evaluation against labeled embedded test corpus
-- **Zero Dependencies**: Pure Python standard library, no numpy/sklearn required
-- **Offline Demo**: Fully self-contained with embedded sample event data
-
-## Installation
-
-```bash
-# No external dependencies required — pure Python stdlib
-python3 ml_siem.py
-```
-
-## Usage
-
-```bash
-# Run full pipeline demo (offline, embedded data)
-python3 ml_siem.py
-
-# Programmatic usage
-from ml_siem import SIEMPipeline, parse_event_line
-
-pipeline = SIEMPipeline()
-pipeline.ingest_lines(sample_lines)
-pipeline.build_feature_windows(window_sec=60)
-anomalies = pipeline.detect(threshold=0.75)
-pipeline.render_dashboard()
-```
-
-## Example Output
+Production-grade blue-team ML SIEM. Trains **only on your own lab telemetry**, builds
+numeric features from flow/event JSONL, fits a baseline model, scores windows for
+anomaly, and emits alerts. scikit-learn is *optional*: when absent, a faithful pure-stdlib
+feature-statistics baseline runs automatically so verification never hard-fails.
 
 ```
-============================================================
-  X6 — SIEM with ML Anomaly Detection
-============================================================
-
-[+] Ingested 480 events from 12 hosts
-[+] Feature windows: 48 windows @ 60s each
-[+] Isolation-Forest-like detector: 48 candidates
-[+] SVD reconstruction detector: 48 candidates
-[+] Score fusion complete
-
-=== Triage Dashboard ===
- Host          | Time Window  | Score | Technique        | Alert
----------------|--------------|-------|------------------|--------
- web-srv-01    | 14:02-14:03  | 0.93  | T1053.005        | HIGH
- db-primary    | 14:05-14:06  | 0.87  | T1059.001        | HIGH
- dns-resolver  | 14:08-14:09  | 0.81  | T1071.004        | MEDIUM
- workstation-3 | 14:11-14:12  | 0.72  | T1078            | LOW
-
-=== Evaluation ===
- Precision: 0.85
- Recall:    0.78
- F1:        0.81
- True Positives: 11  False Positives: 2  False Negatives: 3
+collector → feature builder → model (baseline train / periodic update)
+         → scorer (anomaly score) → alert emitter (JSONL + console + optional webhook)
 ```
 
 ## IMPORTANT: Read before use.
 
-This project is provided for **educational and authorized security testing purposes only**.
+This tool is provided for **educational and authorized security testing purposes only**,
+for use as a blue-team detection capability on **your own systems and lab telemetry**.
 
 ### Authorization Requirements
-- You MUST have explicit written permission before deploying this SIEM on monitored systems
-- Ingesting system logs without authorization may violate privacy and computer access laws
-- This tool should ONLY be used on systems you own or have written authorization to monitor
-- Log data must be handled in accordance with organizational data retention policies
+- You MUST have explicit written permission before monitoring/deploying on any system.
+- Ingesting or training on logs without authorization may violate privacy and computer-access laws.
+- Use ONLY on systems you own or are explicitly authorized to monitor.
+- Models are trained **only** on your own telemetry — never on third-party data.
+- Log/alert data must be handled per your organization's retention policies.
 
 ### Legal Framework
-- **Computer Fraud and Abuse Act (CFAA)**: Unauthorized access to computer systems is a federal crime
-- **ECPA/Wiretap Act**: Intercepting or accessing communications may require authorization
-- **GDPR/CCPA**: System logs may contain personal data subject to data protection regulations
-- **State Laws**: Many states have additional computer crime and privacy statutes
+- **Computer Fraud and Abuse Act (CFAA)**: unauthorized access is a federal crime.
+- **ECPA/Wiretap Act**: intercepting/accessing communications may require authorization.
+- **GDPR/CCPA**: logs may contain personal data subject to data-protection regulation.
+- **State laws**: many states add computer-crime and privacy statutes.
 
 ### Acceptable Use
-- Monitoring your own infrastructure for security threats
-- Authorized security operations center (SOC) deployments with proper authorization
-- Academic research in controlled lab environments
-- Security education and training demonstrations
+- Monitoring your own infrastructure; authorized SOC deployments; academic research in a
+  controlled lab; security education/training demos.
 
 ### Prohibited Use
-- Deploying this SIEM on systems without proper authorization and notice
-- Using detection results to target individuals without legal basis
-- Any activity that violates applicable laws or regulations
-- Commercial use without proper licensing
+- Deploying on systems without authorization/notice; targeting individuals without legal
+  basis; any activity that violates applicable law; commercial use without license.
 
 ### No Warranty
-This software is provided "AS IS" without warranty of any kind. The author is not responsible for any misuse or damage caused by this software.
+Provided "AS IS" without warranty of any kind. The author is not responsible for misuse.
 
 ### Responsible Disclosure
-If this tool detects real vulnerabilities, follow responsible disclosure practices:
-1. Report to the affected system owner privately
-2. Allow reasonable time for remediation
-3. Do not exploit detected weaknesses beyond proof of concept
-4. Follow your organization's incident response procedures
+1. Report detected issues privately to the affected owner. 2. Allow time to remediate.
+3. Do not exploit beyond proof of concept. 4. Follow your incident-response procedures.
+
+## Home-lab note
+
+All examples and the synthetic corpus use RFC 5737 documentation ranges
+(`192.0.2.0/24`, `198.51.100.0/24`, `203.0.113.0/24`) as placeholders. Train on your own
+lab flows; verify alerts with your own injected anomalies.
+
+## Install
+
+```bash
+python -m venv .venv && source .venv/bin/activate
+pip install -e .          # core = pure stdlib; no required deps
+pip install scikit-learn  # optional: enables the isolation-forest detector path
+```
+
+Run without installing: `python -m siem.cli <cmd>` or generate a corpus and use it.
+
+## Usage
+
+```bash
+# 1. Generate a reproducible synthetic lab corpus (normal + anomalies + labels)
+siem corpus --out data/corpus --seed 7
+
+# 2. Fit the baseline model on your own normal flows (JSONL dir)
+siem train --data data/corpus --out model.json
+
+# 3. Ingest JSONL (file or stdin '-') and build feature windows
+siem ingest flows.jsonl
+
+# 4. Live scoring on an ingested stream
+siem run --model model.json flows.jsonl
+
+# 5. Evaluate AUC / precision / recall on a labeled lab corpus
+siem evaluate --data data/corpus --model model.json \
+      --labels data/corpus/labels.csv
+
+# 6. Replay a scored stream and emit alerts
+siem alert --threshold 0.85 --model model.json flows.jsonl
+
+# 7. Offline self-test (must exit 0, targets <25s)
+siem selftest
+```
+
+Flow/event JSONL input format (one object per line, fields used by the feature builder):
+
+```json
+{"ts":"2026-09-06T14:00:00Z","host":"lab-web-01","src":"192.0.2.10",
+ "dst":"192.0.2.55:443","proto":"tcp","packets":8,"bytes":2048,
+ "duration":0.42,"session":"192.0.2.10->192.0.2.55:443"}
+```
+
+### Configuration
+
+`config/siem.yaml` controls feature window size and selection, scoring threshold,
+periodic-update cadence, alert output (console/JSONL/webhook) and logging. Override with
+`--config path.yaml` or `SIEM_CONFIG`.
+
+## Metrics
+
+Recorded on the synthetic held-out corpus (reproducible with `siem selftest`, seed 7;
+trained on 60% of normal windows, evaluated on the remaining 40% + injected anomalies):
+
+| metric | held-out value |
+|---|---|
+| AUC | 0.9983 |
+| Precision | 0.7500 |
+| Recall | 1.0000 |
+| False positives | 1 / 192 negatives |
+
+- **AUC/precision on held-out**: computed by `siem evaluate` with a rank-based (Mann-Whitney)
+  AUC, no ML dependency; precise numbers are printed per run and stored in `METRICS.md`.
+- **Alert latency**: end-to-end time from event ingest through window close → feature build →
+  scoring → alert record. Windowed scoring means a window is scored once it closes (default 60s);
+  per-run latency is reported in the structured log (`logs/siem.log`).
+- **Drift handling**: `scoring.update_cadence_sec` drives periodic retraining on a rolling
+  baseline; the stdlib detector stores rolling mean/std per feature so the baseline follows
+  slow drift while still flagging sharp deviations. Evaluate drift by retraining on newer
+  normal windows and re-running `siem evaluate`.
+
+## Live Lab Test Plan
+
+1. **Train on own flows**: export your own lab flows (Zeek `conn.log` → normalize to the JSONL
+   schema, or emit your own collector's JSONL). Run `siem train --data <your-normal-flows> --out model.json`.
+2. **Inject an anomaly**: from a lab host, run a port scan burst, a periodic beacon (e.g. a
+   scripted callback every N seconds), or a bulk exfil-style transfer against your lab targets.
+3. **Verify alert**: `siem run --model model.json your-flows.jsonl | siem alert --threshold 0.85 --model model.json -`
+   and confirm an alert for the anomalous host/window with a high anomaly score.
+4. **Keep FP low**: replay a window of clean baseline traffic and confirm zero (or near-zero)
+   alerts; record the FP count in `METRICS.md`.
+
+## Detector Modes
+
+Two detectors expose the **same interface** (`fit`/`score`/`save`/`load`) and **same output
+format** (anomaly score in `[0, 1)`):
+
+| mode | when used | description |
+|---|---|---|
+| `sklearn` | scikit-learn installed (default) | Isolation-Forest anomaly score fused with a robust z-score ensemble (mean/std per feature, capped standardized distance). |
+| `stdlib` | scikit-learn absent, or `detector.force_stdlib: true` | Faithful stdlib feature-statistics baseline: rolling mean/std per feature, standardized (z) distance → score. No ML dependency. |
+
+Which path ran is recorded in the model file (`detector_path`) and printed by `siem train`.
+The **offline demo / self-test always runs on the stdlib path** so verification never
+hard-fails without scikit-learn. Model persistence is plain JSON (means/stds/feature
+metadata + `detector_path`); sklearn uses the same JSON artifact for feature statistics
+(no pickle blobs).
+
+## Tests
+
+```bash
+python -m unittest discover -s tests -v    # stdlib unittest, no deps
+python -m compileall -q siem tests
+```
+
+Coverage: feature-builder correctness on tiny fixtures, label encoding / metrics (AUC,
+precision, recall), train/evaluate on a small corpus, detector persistence round-trip,
+alert-threshold behavior, config validation.
+
+## Offline self-test
+
+`siem selftest` (or `python -m siem.cli selftest`): generates corpus → trains → evaluates →
+asserts AUC ≥ 0.75, recall ≥ 0.8, majority true positives, low FP (<5% of negatives) →
+emits a sample alert JSONL → exits 0 in well under 25s.
 
 ## License
 
-MIT
+MIT. See `LICENSE`.

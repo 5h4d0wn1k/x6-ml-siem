@@ -1,4 +1,22 @@
+# Python
 __pycache__/
 *.pyc
 *.pyo
+*.egg-info/
+build/
+dist/
+
+# Generated artifacts (see End-to-End Verification)
+model.json
+logs/
+alerts/
+data/
+*.cap
+*.pcap
+*.pcapng
+hits.log
+
+# Editor / OS
 .DS_Store
+.idea/
+.vscode/

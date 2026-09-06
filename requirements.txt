@@ -1,0 +1,10 @@
+# Core runtime has zero hard dependencies (pure Python standard library).
+# These are OPTIONAL and only needed to enable richer paths:
+#
+# scikit-learn  -> enables the Isolation-Forest detector (sklearn path).
+#                  If absent, the stdlib feature-statistics baseline is used
+#                  automatically so verification never hard-fails.
+# PyYAML        -> full YAML config parsing. If absent, a minimal stdlib
+#                  parser reads config/siem.yaml.
+scikit-learn>=1.0  # optional
+PyYAML>=5.0        # optional
